@@ -1,0 +1,55 @@
+# 1. Secrets & Environment Variables (NEVER COMMIT)
+.env
+*.env
+!.env.example
+backend/.env
+frontend/.env
+
+# 2. Python Virtual Environment & Cache
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# 3. Local Data, Vector Store & SQLite History DB
+backend/data/raw/*
+backend/data/processed/*
+backend/data/vector_db/*
+backend/data/*.db
+backend/data/*.sqlite3
+*.db
+*.sqlite3
+
+# 4. Local ML Model Weights
+backend/models/embeddings/*
+backend/models/reranker/*
+
+# 5. Frontend Dependencies & Build Outputs
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+*.log
+
+# 6. IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# Root data files, PDFs, and old vector DB
+chroma_db/
+volume_15_cases/
+volume_15_qa_pairs/
+*.pdf
+*.docx
+*.jsonl
+cases.json
+combine_cases.json
+volume_15_qa_first41.json
+
+# Local archive for old prototype scripts
+scratch_archive/
