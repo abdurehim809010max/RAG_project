@@ -9,6 +9,9 @@ frontend/.env
 venv/
 .venv/
 env/
+.coverage
+coverage.xml
+htmlcov/
 __pycache__/
 *.py[cod]
 *.pyo

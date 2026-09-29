@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     top_k: int = 5
 
     # --- Authentication ---
-    jwt_secret_key: str = "change-this-development-secret"
+    jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
