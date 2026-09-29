@@ -8,19 +8,19 @@ export function useChatStream() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch list of conversations on load
+  // Fetch list of conversations on load
   useEffect(() => {
     loadConversations();
   }, []);
 
-  const loadConversations = async () => {
+  async function loadConversations() {
     try {
       const data = await chatApi.getConversations();
-      // Expecting array of { id, title, updated_at }
       setConversations(data.conversations || data || []);
     } catch (error) {
       console.error('Failed to load conversations list:', error);
     }
-  };
+  }
 
   // Switch to an existing conversation
   const selectConversation = async (convId) => {
