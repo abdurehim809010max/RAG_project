@@ -24,6 +24,19 @@ def test_verify_rejects_wrong_password():
     assert not verify_password("wrong password", password_hash)
 
 
+def test_empty_credentials_are_rejected():
+    with pytest.raises(ValueError, match="must not be empty"):
+        hash_password("")
+
+    assert not verify_password("", "not-a-hash")
+    assert not verify_password("password", "")
+
+
+def test_empty_token_subject_is_rejected():
+    with pytest.raises(ValueError, match="must not be empty"):
+        create_access_token("")
+
+
 def test_token_create_decode_roundtrip():
     token = create_access_token("user@example.com")
 

@@ -1,7 +1,13 @@
 import pytest
 from unittest.mock import Mock
+from types import SimpleNamespace
 
-from backend.app.services.rag.pipeline import RagPipeline, build_prompt
+from backend.app.services.rag.pipeline import (
+    LLMUnavailableError,
+    RagPipeline,
+    _finish_reason,
+    build_prompt,
+)
 
 
 class FakeRetriever:
@@ -81,3 +87,39 @@ def test_answer_stream_is_available_when_implemented():
         pytest.skip("answer_stream is not implemented yet")
 
     assert callable(pipeline.answer_stream)
+
+
+def test_finish_reason_handles_missing_candidates():
+    assert _finish_reason(SimpleNamespace(candidates=[])) == "no candidates"
+    assert _finish_reason(SimpleNamespace(candidates=[SimpleNamespace(finish_reason="STOP")])) == "STOP"
+
+
+def test_generate_retries_empty_primary_and_uses_fallback():
+    responses = [SimpleNamespace(text=""), SimpleNamespace(text="fallback answer")]
+    client = Mock()
+    client.models.generate_content.side_effect = responses
+    pipeline = RagPipeline.__new__(RagPipeline)
+    pipeline.model_name = "primary"
+    pipeline.fallback_models = ["fallback"]
+    pipeline.primary_attempts = 1
+    pipeline.retry_delay = 0
+    pipeline._client = client
+
+    assert pipeline._generate_with_retry("prompt") == "fallback answer"
+    assert [call.kwargs["model"] for call in client.models.generate_content.call_args_list] == [
+        "primary", "fallback"
+    ]
+
+
+def test_generate_raises_when_all_models_return_empty():
+    client = Mock()
+    client.models.generate_content.return_value = SimpleNamespace(text="", candidates=[])
+    pipeline = RagPipeline.__new__(RagPipeline)
+    pipeline.model_name = "primary"
+    pipeline.fallback_models = []
+    pipeline.primary_attempts = 1
+    pipeline.retry_delay = 0
+    pipeline._client = client
+
+    with pytest.raises(LLMUnavailableError, match="empty response"):
+        pipeline._generate_with_retry("prompt")

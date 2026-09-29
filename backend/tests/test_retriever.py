@@ -66,6 +66,29 @@ def test_retrieve_handles_empty_results():
     assert retriever.retrieve("nothing here", auto_filter_case_number=False) == []
 
 
+def test_rerank_is_explicitly_rejected():
+    retriever = Retriever(FakeEmbedder(), FakeStore())
+
+    try:
+        retriever.retrieve("question", rerank=True)
+    except NotImplementedError as error:
+        assert "Reranking" in str(error)
+    else:
+        raise AssertionError("rerank=True should be rejected")
+
+
+def test_strict_missing_case_does_not_fall_back_to_global_search():
+    store = FakeStore(results={
+        "ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]],
+    })
+    retriever = Retriever(FakeEmbedder(), store)
+
+    result = retriever.retrieve("በቅጽ 15 መዝገብ ቁጥር 80343 principle")
+
+    assert result == []
+    assert len(store.calls) == 1
+
+
 def test_parse_scope_removes_strict_case_prefix():
     retriever = Retriever(FakeEmbedder(), FakeStore())
     scope = retriever.parse_scope("በቅጽ 15፣ መዝገብ ቁጥር 80343፣ ዋና መርህ")
