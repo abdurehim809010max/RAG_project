@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { chatApi } from "../services/ChatApi";
+import { chatApi } from "../services/chatApi";
 
 export function useChatStream() {
   const [conversations, setConversations] = useState([]);
