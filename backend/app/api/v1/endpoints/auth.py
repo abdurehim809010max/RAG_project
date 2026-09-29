@@ -8,6 +8,7 @@ and tests, but must be replaced for production persistence.
 from __future__ import annotations
 
 import secrets
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -75,7 +76,9 @@ def login(payload: UserLogin) -> TokenResponse:
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     return TokenResponse(
-        access_token=create_access_token(user.email, expires_in=_TOKEN_EXPIRE_SECONDS),
+        access_token=create_access_token(
+            user.email, expires_delta=timedelta(seconds=_TOKEN_EXPIRE_SECONDS)
+        ),
         expires_in=_TOKEN_EXPIRE_SECONDS,
     )
 
