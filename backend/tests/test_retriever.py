@@ -1,4 +1,5 @@
 from backend.app.services.rag.retriever import Retriever
+from backend.app.services.rag.chunker import chunk_text
 
 
 class FakeEmbedder:
@@ -24,6 +25,45 @@ class FakeStore:
     def query(self, embedding, top_k=5, where=None):
         self.calls.append((embedding, top_k, where))
         return self.results
+
+
+def test_chunking_respects_size_and_overlap():
+    chunks = chunk_text("x" * 120, chunk_size=40, overlap=10)
+
+    assert [len(chunk[0]) for chunk in chunks] == [40, 40, 40, 30]
+    assert chunks[0][2] - chunks[1][1] == 10
+    assert chunks[1][2] - chunks[2][1] == 10
+
+
+def test_retrieve_returns_top_k_in_store_order():
+    store = FakeStore(results={
+        "ids": [["best", "second"]],
+        "documents": [["best text", "second text"]],
+        "metadatas": [[
+            {"case_number": "80343", "page_range": "1", "legal_category": "tax"},
+            {"case_number": "80343", "page_range": "2", "legal_category": "tax"},
+        ]],
+        "distances": [[0.1, 0.4]],
+    })
+    retriever = Retriever(FakeEmbedder(), store)
+
+    result = retriever.retrieve("legal principle", top_k=2, auto_filter_case_number=False)
+
+    assert [chunk["chunk_id"] for chunk in result] == ["best", "second"]
+    assert [chunk["distance"] for chunk in result] == [0.1, 0.4]
+    assert store.calls[0][1] == 2
+
+
+def test_retrieve_handles_empty_results():
+    store = FakeStore(results={
+        "ids": [[]],
+        "documents": [[]],
+        "metadatas": [[]],
+        "distances": [[]],
+    })
+    retriever = Retriever(FakeEmbedder(), store)
+
+    assert retriever.retrieve("nothing here", auto_filter_case_number=False) == []
 
 
 def test_parse_scope_removes_strict_case_prefix():
