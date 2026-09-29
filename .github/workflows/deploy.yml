@@ -1,0 +1,27 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Container image tag
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: ./.github/workflows/backend-ci.yml
+
+  deployment:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deployment placeholder
+        run: |
+          echo "Validation passed for image tag '${{ inputs.image_tag }}'."
+          echo "Configure the provider-specific deployment command here."
