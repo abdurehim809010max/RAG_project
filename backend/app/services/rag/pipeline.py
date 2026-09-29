@@ -30,6 +30,9 @@ import logging
 import os
 import time
 
+import json
+from backend.app.services.cache.semantic_cache import SemanticCache
+
 import httpx
 from dotenv import load_dotenv
 from google import genai
@@ -110,6 +113,7 @@ class RagPipeline:
         self.primary_attempts = primary_attempts
         self.retry_delay = retry_delay
         self._client = genai.Client(api_key=api_key or os.environ["GEMINI_API_KEY"])
+        self.cache = SemanticCache()
 
     def _generate_with_retry(self, prompt: str) -> str:
         """Return Gemini's answer text, or raise LLMUnavailableError /
@@ -176,16 +180,30 @@ class RagPipeline:
                legal_category: str | None = None,
                auto_filter_case_number: bool = True) -> dict:
         """
-        Run the full pipeline for one query: retrieve relevant chunks, ask
-        Gemini to answer using only those chunks, and return the answer plus
-        the sources it was grounded in (what CitationCard.jsx will render).
-
-        case_number / volume: pass these when the caller already knows which
-        case the question is about; otherwise the retriever reads the
-        "በቅጽ N፣ መዝገብ ቁጥር N" prefix from the question.
-
-        Raises LLMUnavailableError / LLMConfigError if generation fails.
+        Run the full pipeline for one query, utilizing Redis caching to 
+        skip retrieval and generation if the question was recently answered.
         """
+        # Create a string key for the cache based on the case_number filter
+        safe_case_key = str(case_number) if case_number else "all_cases"
+        
+        # 1. CHECK REDIS CACHE
+        cached_data = self.cache.get_cached_answer(query, safe_case_key)
+        if cached_data:
+            logger.info("Cache hit! Returning answer instantly from Redis.")
+            return {
+                "answer": cached_data["answer"],
+                # Provide a dummy source indicating it came from memory
+                "sources": [{
+                    "case_number": safe_case_key,
+                    "page_range": "N/A",
+                    "legal_category": "Cached Response",
+                    "chunk_id": "redis_cache",
+                    "distance": 0.0
+                }],
+                "cached": True
+            }
+
+        # 2. RETRIEVE RELEVANT CHUNKS
         chunks = self.retriever.retrieve(
             query, top_k=top_k,
             case_number=case_number, volume=volume,
@@ -199,7 +217,13 @@ class RagPipeline:
                 "sources": [],
             }
 
+        # 3. GENERATE ANSWER VIA GEMINI
         answer_text = self._generate_with_retry(build_prompt(query, chunks))
+
+        # 4. SAVE TO REDIS CACHE FOR NEXT TIME
+        # (We don't cache "I don't know" answers so the model can try again later)
+        if answer_text and "አላገኘሁም" not in answer_text:
+            self.cache.set_cached_answer(query, safe_case_key, answer_text)
 
         return {
             "answer": answer_text,
