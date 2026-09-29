@@ -1,5 +1,6 @@
 """Shared fixtures for backend tests."""
 
+from collections.abc import Generator, Iterator
 import os
 
 # These must be present before importing the application settings or app.
@@ -11,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.core.config import Settings
 from backend.app.core.database import Base, get_db
@@ -43,7 +44,7 @@ def mock_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 
 @pytest.fixture
-def db_session():
+def db_session() -> Generator[Session, None, None]:
     Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
     try:
@@ -54,8 +55,8 @@ def db_session():
 
 
 @pytest.fixture
-def client(db_session):
-    def override_get_db():
+def client(db_session: Session) -> Iterator[TestClient]:
+    def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db

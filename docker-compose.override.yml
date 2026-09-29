@@ -6,7 +6,7 @@ services:
       - backend_data:/app/backend/data
 
   frontend:
-    image: node:22-alpine
+    image: node:22-alpine@sha256:2c752226d477b4a886378baa95b9af252be59301b725fdb0b7e15208131505a8
     build: null
     working_dir: /app
     environment:
