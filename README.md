@@ -2,6 +2,25 @@
 
 A FastAPI service and web client for asking grounded questions about Ethiopian Federal Supreme Court cassation decisions.
 
+## Overview
+
+The project provides a web client and FastAPI backend for retrieving relevant cassation-decision passages and generating grounded answers with Gemini. Documents are chunked and embedded locally, stored in Chroma, and returned as cited sources alongside the answer.
+
+```mermaid
+flowchart LR
+	Browser[Web browser] --> Frontend[Frontend\nnginx / Vite]
+	Frontend -->|/api| API[FastAPI backend]
+	API --> Auth[Auth\nJWT + SQLite users]
+	API --> Pipeline[RAG pipeline]
+	Pipeline --> Retriever[Retriever]
+	Retriever --> Embedder[EmbeddingClient\nlocal embeddings]
+	Retriever --> Chroma[(Chroma\npersistent vector store)]
+	Pipeline --> Gemini[Gemini\nanswer generation]
+	API -. optional cache .-> Redis[(Redis)]
+```
+
+In production, the frontend and backend are built as separate containers. Chroma and SQLite use the backend data volume; Redis is available as the cache service for components that adopt it.
+
 ## Backend setup
 
 ```bash
