@@ -1,38 +1,25 @@
-"""User contract used by authentication until the database adapter is connected."""
+"""SQLAlchemy persistence model for authenticated users."""
 
-from datetime import datetime
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import Boolean, DateTime, String, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class User(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    id: str
-    email: str = Field(min_length=3, max_length=320)
-    password_hash: str
-    is_active: bool = True
-    created_at: datetime
+from backend.app.core.database import Base
 
 
-class UserPublic(BaseModel):
-    id: str
-    email: str
-    is_active: bool
-    created_at: datetime
+class User(Base):
+    """Persisted user account used by the authentication service."""
 
+    __tablename__ = "users"
 
-class UserRegistration(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=8, max_length=128)
-
-
-class UserLogin(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=1, max_length=128)
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
