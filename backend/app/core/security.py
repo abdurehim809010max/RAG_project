@@ -8,9 +8,12 @@ from typing import Any
 
 import bcrypt
 import jwt
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError as PyJWTInvalidTokenError
 
 from backend.app.core.config import get_settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 class AuthenticationError(ValueError):
