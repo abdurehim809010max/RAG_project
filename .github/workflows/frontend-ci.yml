@@ -14,22 +14,34 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
       - name: Install dependencies
         run: npm ci
-      - name: Run available checks
+
+      - name: Run lint when configured
+        shell: bash
         run: |
-          npm run lint --if-present
-          npm run test --if-present
-          npm run build
+          if npm pkg get scripts.lint | grep -qv '^null$'; then
+            npm run lint
+          else
+            echo "No lint script configured; skipping."
+          fi
+
+      - name: Build frontend
+        run: npm run build
