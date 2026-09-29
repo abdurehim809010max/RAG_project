@@ -214,3 +214,55 @@ class RagPipeline:
                 for c in chunks
             ],
         }
+    # Add this method inside your RagPipeline class in pipeline.py
+    def answer_stream(self, query: str, top_k: int = 5,
+                      case_number: str | None = None,
+                      volume: int | None = None,
+                      legal_category: str | None = None,
+                      auto_filter_case_number: bool = True):
+        """Generates the answer token-by-token for streaming."""
+        import json
+        
+        # 1. Retrieve chunks exactly like answer() does
+        chunks = self.retriever.retrieve(
+            query, top_k=top_k,
+            case_number=case_number, volume=volume,
+            legal_category=legal_category,
+            auto_filter_case_number=auto_filter_case_number,
+        )
+        
+        # 2. Format sources strictly matching your ChatResponse schema
+        formatted_sources = [
+            {
+                "case_number": c["case_number"],
+                "page_range": c["page_range"],
+                "legal_category": c["legal_category"],
+                "chunk_id": c["chunk_id"],
+                "distance": c["distance"],
+            }
+            for c in chunks
+        ]
+        
+        # 3. Stream the sources first so the UI can render citations instantly
+        yield f"data: {json.dumps({'type': 'sources', 'content': formatted_sources}, ensure_ascii=False)}\n\n"
+        
+        if not chunks:
+            yield f"data: {json.dumps({'type': 'text', 'content': 'ተዛማጅ የፍርድ ውሳኔ አላገኘሁም።'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # 4. Build prompt using your existing standalone function
+        prompt = build_prompt(query, chunks) 
+        
+        # 5. Call Gemini directly with stream=True
+        response = self._client.models.generate_content_stream(
+            model=self.model_name, 
+            contents=prompt
+        )
+        
+        for chunk in response:
+            if chunk.text:
+                yield f"data: {json.dumps({'type': 'text', 'content': chunk.text}, ensure_ascii=False)}\n\n"
+                
+        # 6. Signal that the stream is finished
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
