@@ -1,3 +1,5 @@
+from backend.app.models import conversation  # import so init_db() sees its tables
+from backend.app.core.database import init_db
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,3 +35,5 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+
+init_db()
