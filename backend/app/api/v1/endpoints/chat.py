@@ -17,7 +17,11 @@ Error mapping:
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
+from backend.app.core.database import get_db
+from backend.app.models.conversation import Conversation
 from backend.app.schemas.chat import ChatRequest, ChatResponse
 from backend.app.services.rag.pipeline import (
     LLMConfigError,
@@ -48,6 +52,7 @@ def ask_question(payload: ChatRequest, request: Request) -> ChatResponse:
             volume=payload.volume,
             legal_category=payload.legal_category,
         )
+        
     except LLMUnavailableError as e:
         logger.warning("Chat request failed, Gemini unavailable: %s", e)
         raise HTTPException(
@@ -63,3 +68,9 @@ def ask_question(payload: ChatRequest, request: Request) -> ChatResponse:
         )
 
     return ChatResponse(**result)
+@router.get("/conversations")
+def get_conversations(db: Session = Depends(get_db)):
+    """Fetch all past conversations for the frontend sidebar."""
+    # Queries the SQLite chat_history.db for all conversations, newest first
+    conversations = db.query(Conversation).order_by(Conversation.created_at.desc()).all()
+    return conversations
