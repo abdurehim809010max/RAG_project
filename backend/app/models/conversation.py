@@ -2,6 +2,10 @@
 backend/app/models/conversation.py
 
 SQLAlchemy models for chat history: one Conversation has many Messages.
+Also includes the Document model, which tracks uploaded source files and
+the ids of the chunks they produced in Chroma. There's no separate
+models/document.py in this project's file structure, so Document lives
+here alongside Conversation/Message rather than as its own file.
 
     Conversation
       id            str (UUID, primary key)
@@ -22,6 +26,16 @@ SQLAlchemy models for chat history: one Conversation has many Messages.
                               this is serialized on write and parsed back
                               on read — see to_dict() below)
       created_at       datetime
+
+    Document
+      id               str (UUID, primary key)
+      filename         str
+      status           str  — "processing" | "indexed" | "failed"
+      chunk_count      int
+      chunk_ids_json   str  — Chroma chunk ids owned by this document,
+                              stored as a JSON string so DELETE can remove
+                              exactly those chunks and no others
+      uploaded_at      datetime
 """
 
 import json
@@ -86,4 +100,34 @@ class Message(Base):
             "content": self.content,
             "sources": self.get_sources(),
             "created_at": self.created_at.isoformat(),
+        }
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_id)
+    filename: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default="processing")  # processing | indexed | failed
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    chunk_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    def set_chunk_ids(self, chunk_ids: list[str]) -> None:
+        """Serialize the Chroma chunk ids produced by this upload."""
+        self.chunk_ids_json = json.dumps(chunk_ids)
+        self.chunk_count = len(chunk_ids)
+
+    def get_chunk_ids(self) -> list[str]:
+        """Deserialize back to a list of chunk ids (empty list if none stored)."""
+        return json.loads(self.chunk_ids_json) if self.chunk_ids_json else []
+
+    def to_dict(self) -> dict:
+        """Shape used by GET /documents, matching DocumentUploadResponse's fields."""
+        return {
+            "document_id": self.id,
+            "filename": self.filename,
+            "status": self.status,
+            "chunks": self.chunk_count,
+            "uploaded_at": self.uploaded_at.isoformat(),
         }

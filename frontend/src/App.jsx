@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import ChatWindow from './components/chat/ChatWindow';
+import FileUploader from './components/upload/FileUploader';
+import DocumentList from './components/upload/DocumentList';
 import { useChatStream } from './hooks/useChatStream';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [documentsRefreshToken, setDocumentsRefreshToken] = useState(0);
   
   const chatStream = useChatStream();
 
@@ -105,7 +108,17 @@ export default function App() {
               </button>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: '#3b2314' }}>Document Ingestion Hub</h2>
             </div>
-            <p style={{ color: '#78685b' }}>Document upload components are handled by Person 3.</p>
+
+            <div style={{ maxWidth: '640px', marginBottom: '32px' }}>
+              <FileUploader onUploadComplete={() => setDocumentsRefreshToken((n) => n + 1)} />
+            </div>
+
+            <div style={{ maxWidth: '720px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3b2314', marginBottom: '12px' }}>
+                Indexed Documents
+              </h3>
+              <DocumentList refreshToken={documentsRefreshToken} />
+            </div>
           </div>
         )}
       </main>

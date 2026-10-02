@@ -20,10 +20,22 @@ class CassationPDFLoader:
     def normalize_case_number(self, raw: str) -> str:
         return raw.replace("ዐ", "0")
 
-    def load_and_split(self, pdf_path: str, volume_number: int, toc_end_page: int) -> list[dict]:
+    def load_and_split(
+        self,
+        pdf_path: str,
+        volume_number: int = 15,
+        toc_end_page: int = 32,
+    ) -> list[dict]:
         """
-        Reads the PDF, splits it by case heading, and returns a list of case dictionaries 
-        ready to be chunked and embedded (replaces Phase 4 JSON saving).
+        Reads the PDF, splits it by case heading, and returns a list of case
+        dictionaries ready to be chunked and embedded.
+
+        volume_number: stamped onto every case's metadata, so citations
+            report the correct volume instead of always "15".
+        toc_end_page: the 0-indexed pdfplumber page where the table of
+            contents ends and case body text begins. TOC parsing runs from
+            page 3 up to (but not including) this page; body extraction
+            starts at this page.
         """
         toc_metadata = {}
         full_body_parts = []
@@ -33,17 +45,16 @@ class CassationPDFLoader:
         with pdfplumber.open(pdf_path) as pdf:
             total_pages = len(pdf.pages)
 
-            # Phase 1: TOC Extraction (Pages 3-32)
-            # (Assuming volume 15 structure for this example)
+            # Phase 1: TOC Extraction (pages 3 .. toc_end_page)
             current_category = "አጠቃላይ ፍትሐብሔር"
-            
+
             for pno in range(3, min(toc_end_page, total_pages)):
                 page_text = pdf.pages[pno].extract_text() or ""
                 # Add logic here from extract_cases_fixed.py to populate toc_metadata...
 
-            # Phase 2: Extract Body Text (Pages 33+)
-            for pno in range(32, total_pages):
-                printed_page = pno - 31
+            # Phase 2: Extract Body Text (toc_end_page onward)
+            for pno in range(toc_end_page, total_pages):
+                printed_page = pno - toc_end_page + 1
                 p_text = (pdf.pages[pno].extract_text() or "") + "\n"
                 full_body_parts.append(p_text)
 
@@ -68,7 +79,7 @@ class CassationPDFLoader:
 
         final_cases = []
 
-        # Phase 4: Create Case Objects (Replaces JSON dumping)
+        # Phase 4: Create Case Objects
         for i, match in enumerate(matches):
             case_number = self.normalize_case_number(match.group(1) or match.group(2))
             start_pos = match.start()
@@ -80,13 +91,12 @@ class CassationPDFLoader:
 
             meta = toc_metadata.get(case_number, {})
 
-            # Instead of writing to a file, append to a list in memory!
             final_cases.append({
-            "case_number": case_number,
-            "volume": volume_number,  # <--- Now it uses the dynamic volume
-            "legal_category": meta.get("legal_category", "አጠቃላይ ፍትሐብሔር"),
-            "page_range": page_range_str,
-            "context": full_body[start_pos:end_pos].strip()
-        })
+                "case_number": case_number,
+                "volume": volume_number,
+                "legal_category": meta.get("legal_category", "አጠቃላይ ፍትሐብሔር"),
+                "page_range": page_range_str,
+                "context": full_body[start_pos:end_pos].strip()
+            })
 
         return final_cases

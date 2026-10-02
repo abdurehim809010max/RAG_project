@@ -7,8 +7,6 @@ API endpoints for RAG chat and conversation history.
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-import json
-from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.app.services.rag.embeddings import EmbeddingClient
 from backend.app.services.rag.vector_store import ChromaVectorStore
@@ -17,11 +15,10 @@ from backend.app.core.database import get_db
 from backend.app.models.conversation import Conversation, Message
 from backend.app.services.rag.pipeline import RagPipeline
 from backend.app.schemas.chat import (
-    ChatRequest, 
-    ChatResponse, 
+    ChatRequest,
+    ChatResponse,
     ConversationHistoryResponse
 )
-from backend.app.services.rag.pipeline import RagPipeline
 
 router = APIRouter()
 
@@ -30,10 +27,10 @@ def get_pipeline():
     """Instantiate the complete RAG pipeline."""
     embedder = EmbeddingClient()
     vector_store = ChromaVectorStore()
-    
+
     # FIX: Pass BOTH the embedder and the vector store
     retriever = Retriever(embedder=embedder, vector_store=vector_store)
-    
+
     return RagPipeline(retriever=retriever)
 
 @router.post("", response_model=ChatResponse)
@@ -65,7 +62,6 @@ def chat(
 
     # 3. Generate Answer using your existing RAG Pipeline
     try:
-        # Assuming your pipeline.answer returns a dict: {"answer": "...", "sources": [...]}
         result = pipeline.answer(
             query=request.question,
             case_number=request.case_number,
@@ -94,11 +90,29 @@ def chat(
     )
 
 
+@router.get("/conversations")
+def list_conversations(db: Session = Depends(get_db)):
+    """List all conversations, most recent first, for the sidebar history."""
+    conversations = (
+        db.query(Conversation)
+        .order_by(Conversation.created_at.desc())
+        .all()
+    )
+    return {
+        "conversations": [
+            {
+                "id": c.id,
+                "title": c.title or "Legal Inquiry",
+                "created_at": c.created_at.isoformat(),
+            }
+            for c in conversations
+        ]
+    }
+
+
 @router.get("/history/{conversation_id}", response_model=ConversationHistoryResponse)
 def get_chat_history(conversation_id: str, db: Session = Depends(get_db)):
     """Fetch previous messages for a specific conversation session."""
-    import json
-    
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -110,7 +124,6 @@ def get_chat_history(conversation_id: str, db: Session = Depends(get_db)):
             {
                 "role": msg.role,
                 "content": msg.content,
-                # Safely parse the SQLite text column back into a Python list
                 "sources": json.loads(msg.sources_json) if getattr(msg, "sources_json", None) else [],
                 "created_at": msg.created_at
             }
@@ -125,7 +138,7 @@ def chat_stream(
     pipeline: RagPipeline = Depends(get_pipeline)
 ):
     """Streams the AI answer token-by-token."""
-    
+
     # 1. Setup DB conversation (Same logic as standard chat)
     if request.conversation_id:
         conv = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
@@ -146,17 +159,14 @@ def chat_stream(
     def stream_generator():
         full_answer = ""
         sources_data = []
-        
-        # Yield the conversation ID as the very first event
+
         yield f"data: {json.dumps({'type': 'info', 'conversation_id': conv.id})}\n\n"
-        
-        # Stream from the pipeline
+
         for sse_string in pipeline.answer_stream(
             query=request.question, case_number=request.case_number, top_k=request.top_k
         ):
             yield sse_string
-            
-            # Extract data to save to DB at the end
+
             if "data: " in sse_string:
                 try:
                     payload = json.loads(sse_string.replace("data: ", "").strip())
@@ -166,11 +176,10 @@ def chat_stream(
                         sources_data = payload["content"]
                 except json.JSONDecodeError:
                     pass
-        
-        # Stream is done, save the assistant message to the DB
+
         ai_msg = Message(
-            conversation_id=conv.id, 
-            role="assistant", 
+            conversation_id=conv.id,
+            role="assistant",
             content=full_answer,
             sources_json=json.dumps(sources_data, ensure_ascii=False) if sources_data else "[]"
         )

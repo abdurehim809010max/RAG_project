@@ -8,7 +8,7 @@ future ingestion endpoint can import and call this directly.
 
 import re
 
-# Prefer to break at these, in priority order, when nudging a cut point.
+# Prefer to break at these, in priority order, when nudging a cut point. 
 # Amharic full-stop is ፡፡ (two dots); newline and space are fallbacks.
 _BREAK_PRIORITY = ["፡፡",".","፣", "።", "!", "?", ",", "\n\n", "\n", " "]
 
