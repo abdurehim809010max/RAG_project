@@ -10,7 +10,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - backend_data:/app/backend/data
+      - ./backend/data:/app/backend/data
     depends_on:
       redis:
         condition: service_healthy
