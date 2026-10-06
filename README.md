@@ -98,20 +98,6 @@ Vite starts the development server at `http://localhost:5173/`. Open that addres
 
 Once both are running, the frontend loads the document list and your saved conversations from the backend (`/api/v1/documents`, `/api/v1/chat/conversations`) and you can start asking questions.
 
-## Authentication
-
-The authentication module provides database-backed register, login, and current-user handlers in `backend/app/api/v1/endpoints/auth.py`. Bearer tokens are issued by `/api/v1/auth/login` and required by `/api/v1/auth/me`.
-
-## Tests
-
-With the virtual environment active, install pytest and run:
-
-```powershell
-pip install pytest
-python -m pytest backend/tests -q
-```
-
-The tests mock or avoid external model and vector-store calls. They do not require a Gemini credential.
 
 ## Troubleshooting
 
